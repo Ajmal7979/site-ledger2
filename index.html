@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Site Ledger — Construction Cost & Progress Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏗️</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Icon rail navigation -->
+  <nav class="rail">
+    <div class="rail-mark">SL</div>
+    <button class="rail-btn active" data-view="dashboard" title="Dashboard">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="rail-btn" data-view="materials" title="Materials">
+      <svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <span>Materials</span>
+    </button>
+    <button class="rail-btn" data-view="other" title="Other Costs">
+      <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>
+      <span>Other Costs</span>
+    </button>
+    <button class="rail-btn" data-view="progress" title="Progress">
+      <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
+      <span>Progress</span>
+    </button>
+    <button class="rail-btn" data-view="plans" title="Plans & 3D">
+      <svg viewBox="0 0 24 24"><path d="M3 21 21 3M3 3h18v18"/></svg>
+      <span>Plans &amp; 3D</span>
+    </button>
+    <button class="rail-btn" data-view="profit" title="Profit">
+      <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span>Profit</span>
+    </button>
+    <div class="rail-spacer"></div>
+    <button class="rail-btn" id="resetBtn" title="Reset all data">
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
+      <span>Reset</span>
+    </button>
+  </nav>
+
+  <main class="content">
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <section class="view active" id="view-dashboard">
+      <header class="view-head">
+        <div>
+          <h1>Site Ledger</h1>
+          <p class="sub">Cost and progress tracker for <span id="projTitleEcho">your build</span></p>
+        </div>
+        <div class="head-field">
+          <label>Project</label>
+          <div class="project-switcher">
+            <select id="projectSelect"></select>
+            <button class="btn ghost small" id="renameProjectBtn" title="Rename project">✎</button>
+            <button class="btn ghost small" id="newProjectBtn" title="New project">+</button>
+            <button class="btn ghost small" id="deleteProjectBtn" title="Delete this project">✕</button>
+            <button class="btn ghost small" id="exportProjectBtn" title="Export project as file">⬇</button>
+            <button class="btn ghost small" id="importProjectBtn" title="Import project from file">⬆</button>
+            <input type="file" id="importProjectFile" accept="application/json" hidden>
+          </div>
+        </div>
+      </header>
+
+      <div class="sync-bar" id="syncBar">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncStatus">Local only on this device — sign in to sync across phone & laptop</span>
+        <button class="btn ghost small" id="signInBtn">Sign in with Google</button>
+        <button class="btn ghost small" id="signOutBtn" style="display:none">Sign out</button>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-label">Total spent so far</span>
+          <span class="stat-value mono" id="statSpent">₹0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Estimated total cost</span>
+          <span class="stat-value mono" id="statEstimate">₹0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Overall progress</span>
+          <span class="stat-value mono" id="statProgress">0%</span>
+        </div>
+        <div class="stat-card highlight" id="statProfitCard">
+          <span class="stat-label">Projected profit</span>
+          <span class="stat-value mono" id="statProfit">₹0</span>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="panel">
+          <h3>Where the money's going</h3>
+          <canvas id="breakdownChart" height="220"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Build progress</h3>
+          <div id="dashStageList" class="stage-mini-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== MATERIALS ===================== -->
+    <section class="view" id="view-materials">
+      <header class="view-head">
+        <div>
+          <h1>Materials</h1>
+          <p class="sub">Every material is pre-listed by category. Edit quantity and rate as you actually procure it — amounts update live.</p>
+        </div>
+        <button class="btn primary" id="addMaterialBtn">+ Add material</button>
+      </header>
+      <div class="table-wrap" id="materialsTableWrap"></div>
+    </section>
+
+    <!-- ===================== OTHER COSTS ===================== -->
+    <section class="view" id="view-other">
+      <header class="view-head">
+        <div>
+          <h1>Other costs</h1>
+          <p class="sub">Plot, approvals, bore well, EB connection, labour, and everything that isn't a material line item.</p>
+        </div>
+        <button class="btn primary" id="addOtherBtn">+ Add cost</button>
+      </header>
+      <div class="table-wrap" id="otherTableWrap"></div>
+    </section>
+
+    <!-- ===================== PROGRESS ===================== -->
+    <section class="view" id="view-progress">
+      <header class="view-head">
+        <div>
+          <h1>Build progress</h1>
+          <p class="sub">Standard construction stages, pre-sequenced and weighted. Set % complete on each as work happens on site.</p>
+        </div>
+      </header>
+      <div class="progress-overall">
+        <div class="progress-overall-bar"><div class="fill" id="overallFill"></div></div>
+        <span class="mono" id="overallPct">0% complete</span>
+      </div>
+      <div id="stageList" class="stage-list"></div>
+    </section>
+
+    <!-- ===================== PLANS & 3D ===================== -->
+    <section class="view" id="view-plans">
+      <header class="view-head">
+        <div>
+          <h1>Plans, elevation &amp; massing</h1>
+          <p class="sub">Upload your floor plan and elevation drawings, and set plot dimensions to preview a simple 3D massing block.</p>
+        </div>
+      </header>
+
+      <div class="plans-grid">
+        <div class="panel">
+          <h3>Plot dimensions</h3>
+          <div class="field-grid">
+            <div class="field"><label>Plot length (ft)</label><input type="number" id="plotLength" min="0" value="40"></div>
+            <div class="field"><label>Plot width (ft)</label><input type="number" id="plotWidth" min="0" value="30"></div>
+            <div class="field"><label>No. of floors</label><input type="number" id="numFloors" min="1" value="2"></div>
+            <div class="field"><label>Floor height (ft)</label><input type="number" id="floorHeight" min="1" value="10"></div>
+            <div class="field"><label>Setback — front (ft)</label><input type="number" id="setbackFront" min="0" value="5"></div>
+            <div class="field"><label>Setback — sides (ft)</label><input type="number" id="setbackSide" min="0" value="3"></div>
+          </div>
+          <p class="hint">This is a proportional massing block from your dimensions — not a render of your actual plan.</p>
+        </div>
+        <div class="panel">
+          <h3>3D massing preview</h3>
+          <div id="three-container"></div>
+          <p class="hint">Drag to rotate · scroll to zoom</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Uploaded drawings</h3>
+        <label class="upload-drop" id="uploadDrop">
+          <input type="file" id="planUpload" accept="image/*" multiple hidden>
+          <span>Click or drop plan / elevation images here</span>
+        </label>
+        <div class="gallery" id="planGallery"></div>
+      </div>
+    </section>
+
+    <!-- ===================== PROFIT ===================== -->
+    <section class="view" id="view-profit">
+      <header class="view-head">
+        <div>
+          <h1>Profit</h1>
+          <p class="sub">Total build cost against your expected selling price.</p>
+        </div>
+      </header>
+
+      <div class="plans-grid">
+        <div class="panel">
+          <h3>Selling price</h3>
+          <div class="field-grid">
+            <div class="field"><label>Built-up area (sq.ft)</label><input type="number" id="builtupArea" min="0" value="0"></div>
+            <div class="field"><label>Selling rate (₹ / sq.ft)</label><input type="number" id="sellRate" min="0" value="0"></div>
+            <div class="field wide"><label>Or set total selling price directly (₹)</label><input type="number" id="sellTotalOverride" min="0" placeholder="Leave blank to use area × rate"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Cost breakdown</h3>
+          <table class="mini-breakdown">
+            <tr><td>Plot &amp; other costs</td><td class="mono" id="pOther">₹0</td></tr>
+            <tr><td>Materials</td><td class="mono" id="pMat">₹0</td></tr>
+            <tr class="total"><td>Total build cost</td><td class="mono" id="pTotal">₹0</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="profit-result">
+        <div>
+          <span class="stat-label">Total selling price</span>
+          <span class="stat-value mono" id="profSell">₹0</span>
+        </div>
+        <div>
+          <span class="stat-label">Total cost</span>
+          <span class="stat-value mono" id="profCost">₹0</span>
+        </div>
+        <div class="highlight">
+          <span class="stat-label">Net profit / loss</span>
+          <span class="stat-value mono" id="profNet">₹0</span>
+          <span class="mono" id="profMargin">0% margin</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================== ADD/EDIT ROW MODAL ===================== -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h3 id="modalTitle">Add item</h3>
+    <div class="field"><label id="modalNameLabel">Name</label><input type="text" id="modalName"></div>
+    <div class="field" id="modalCategoryField"><label>Category</label><input type="text" id="modalCategory" list="categoryList"><datalist id="categoryList"></datalist></div>
+    <div class="field-grid" id="modalQtyRow">
+      <div class="field"><label>Unit</label><input type="text" id="modalUnit" placeholder="bag / sqft / no"></div>
+      <div class="field"><label>Quantity</label><input type="number" id="modalQty" value="0"></div>
+      <div class="field"><label>Rate (₹)</label><input type="number" id="modalRate" value="0"></div>
+    </div>
+    <div class="field" id="modalAmountField"><label>Amount (₹)</label><input type="number" id="modalAmount" value="0"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
